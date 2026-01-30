@@ -24,6 +24,25 @@ local Utils = require("xmake.utils")
 ---|"plat"
 ---|"toolchain"
 
+---@return string, boolean
+local function extract_json(text)
+    if vim.trim(text):sub(1, 1) == "{" then
+        return text, true
+    end
+    local lines = vim.split(text, "[\r\n]+")
+    local json_str = text
+    local found = false
+    for i = 1, #lines do
+        local p = lines[i]:find("{")
+        if p then
+            found = true
+            json_str = lines[i]:sub(p) .. table.concat(lines, "", i + 1, #lines)
+            break
+        end
+    end
+    return json_str, found
+end
+
 ---@return any, any, table
 local function create_load_function(command)
     local output = vim.system({
@@ -40,7 +59,13 @@ local function create_load_function(command)
         return nil, {}, {}
     end
 
-    local result = vim.json.decode(output.stdout)
+    local json_str, found = extract_json(output.stdout)
+    if not found then
+        Utils.error("No JSON found in xmake output")
+        return nil, {}, {}
+    end
+
+    local result = vim.json.decode(json_str)
     return result.current, result.list, result
 end
 
